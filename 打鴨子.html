@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>雙人鴨子射擊遊戲</title>
+    <style>
+        /* 基础样式保留 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            font-family: Arial, sans-serif; 
+            overflow: hidden; 
+        }
+        #gameContainer {
+            width: 100vw;    
+            height: 100vh;   
+            position: relative;
+            overflow: hidden;
+            border: none;    
+            background-image: url("bg_wood.png"); 
+            background-size: cover;    
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+        #gameMenu {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            z-index: 100; 
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 200px;
+        }
+        .player-panel {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 4px;
+            gap: 8px;
+        }
+        .player {
+            text-align: center;
+            padding: 0 4px;
+            font-size: 0.9vw;
+            font-size: clamp(8px, 0.9vw, 12px);
+        }
+        .player1 { color: #ffd700; }
+        .player2 { color: #cd853f; }
+        .target-count {
+            font-size: 0.7vw;
+            font-size: clamp(7px, 0.7vw, 10px);
+            margin-top: 1px;
+        }
+        #timer {
+            margin: 4px 0;
+            font-size: 1vw;
+            font-size: clamp(9px, 1vw, 11px);
+        }
+        #status-text {
+            margin: 4px 0;
+            font-size: 0.8vw;
+            font-size: clamp(8px, 0.8vw, 10px);
+            color: #ffffff;
+        }
+        #startBtn {
+            padding: 0.5vw 1.2vw;
+            font-size: 1.2vw;
+            font-size: clamp(9px, 1.2vw, 14px);
+            margin: 4px 0 0 0;
+            cursor: pointer;
+            background: #ff6600;
+            border: none;
+            color: #fff;
+            border-radius: 6px;
+            display: block;
+            min-width: 80px;
+        }
+        #startBtn:hover { 
+            background: #ff8800; 
+            transform: scale(1.05); 
+        }
+        #startBtn:disabled {
+            background: #999;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .bottle {
+            cursor: pointer;
+            position: absolute; 
+            width: 8vw;    
+            height: 12vw;
+            max-width: 100px; 
+            min-width: 50px;
+            max-height: 150px;
+            min-height: 80px;
+            pointer-events: auto;
+            transition: opacity 0.2s ease;
+        }
+        .bottle img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .water {
+            position: absolute;
+            width: 100%;
+            height: 15vh;
+            pointer-events: none;
+            background-repeat: repeat-x;
+            background-size: auto 100%;
+        }
+        .flip-horizontal {
+            transform: scaleX(-1);
+        }
+        .hit {
+            cursor: default;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        .bottle::after {
+            content: attr(data-type);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 12px;
+            z-index: -1;
+        }
+        .countdown {
+            font-size: 3vw !important;
+            font-weight: bold;
+            color: #ff6600 !important;
+        }
+
+        /* 新得分弹窗样式（匹配截图） */
+        #scoreModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .score-card {
+            background: #fff;
+            padding: 2.5rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 350px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .target-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            color: #e91e63;
+        }
+        .score-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .score-desc {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+        .score-item {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+        }
+        .hit-count {
+            color: #2ecc71;
+        }
+        .accuracy {
+            color: #3498db;
+        }
+        .finish-time {
+            color: #e67e22;
+        }
+        .score-item span {
+            font-weight: bold;
+        }
+        .play-again-btn {
+            background: #3498db;
+            color: #fff;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: background 0.3s;
+        }
+        .play-again-btn:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameMenu">
+        <div class="player-panel">
+            <div class="player player1">
+                玩家1（黃鴨）<br>
+                <div class="target-count">擊中：<span id="player1Score">0</span>/6</div>
+            </div>
+            <div class="player player2">
+                玩家2（棕鴨）<br>
+                <div class="target-count">擊中：<span id="player2Score">0</span>/6</div>
+            </div>
+        </div>
+        <div id="timer">用時：<span id="timeCount">0</span>秒</div>
+        <div id="status-text">點擊開始（白鴨擊中不計分）</div>
+        <button id="startBtn">開始</button>
+    </div>
+    <div id="gameContainer"></div>
+
+    <!-- 匹配截图的得分弹窗 -->
+    <div id="scoreModal">
+        <div class="score-card">
+            <div class="target-icon">🎯</div>
+            <h2 class="score-title">恭喜完成！</h2>
+            <p class="score-desc" id="modalDesc">玩家1打掉了所有6個黃鴨！</p>
+            
+            <div class="score-item hit-count">
+                擊中數：<span id="modalHitCount">玩家1：6/6 | 玩家2：4/6</span>
+            </div>
+            <div class="score-item accuracy">
+                命中率：<span id="modalAccuracy">100%</span>
+            </div>
+            <div class="score-item finish-time">
+                完成時間：<span id="modalTime">3.3秒</span>
+            </div>
+            
+            <button class="play-again-btn" id="playAgainBtn">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        var ArrayUtil = {
+            removeItem: function(arr, item) {
+                var index = arr.indexOf(item);
+                if (index > -1) arr.splice(index, 1);
+                return arr;
+            }
+        };
+
+        var imgConfig = {
+            pin: "duck-yellow-target.png",  
+            pin1: "duck-brown-target.png",  
+            pin2: "duck-white-target.png",  
+            hit: "duck-back.png",
+            water1: "water1.png",
+            water2: "water2.png",
+            bg: "game_back1.jpg"
+        };
+
+        var soundConfig = {
+            ready: "shootoff-are-you-ready.WAV",  
+            hitYellow: "duck_quack.OGG",          
+            hitBrown: "duck_quack_fail.OGG",       
+            hitWhite: "monster_quack.ogg"          
+        };
+        var soundInstances = {};
+
+        function playSound(soundKey, loop = false) {
+            if(loop && soundInstances[soundKey]) {
+                soundInstances[soundKey].pause();
+                soundInstances[soundKey].currentTime = 0;
+            }
+            const audio = new Audio(soundConfig[soundKey]);
+            audio.loop = loop;
+            if(loop) {
+                soundInstances[soundKey] = audio;
+            }
+            audio.play().catch(err => {
+                console.warn("音效播放失败:", err);
+            });
+            return audio;
+        }
+
+        function stopSound(soundKey) {
+            if(soundInstances[soundKey]) {
+                soundInstances[soundKey].pause();
+                soundInstances[soundKey].currentTime = 0;
+            }
+        }
+
+        var hitImage = new Image();
+        hitImage.src = imgConfig.hit;
+        hitImage.onerror = function() {
+            console.error("❌ 擊中圖片預載入失敗：", imgConfig.hit);
+        };
+
+        var water1Image = new Image();
+        water1Image.src = imgConfig.water1;
+        water1Image.onerror = function() {
+            console.error("❌ 水面圖片1預載入失敗：", imgConfig.water1);
+        };
+
+        var water2Image = new Image();
+        water2Image.src = imgConfig.water2;
+        water2Image.onerror = function() {
+            console.error("❌ 水面圖片2預載入失敗：", imgConfig.water2);
+        };
+
+        var CreateGame = {
+            createBottle: function(imgType, x, y, zIndex, parent, dataArr, flipHorizontal = false) {
+                var wrapper = document.createElement("div");
+                wrapper.id = imgType + "_" + Date.now();
+                wrapper.style.left = x + "px";
+                wrapper.style.top = y + "px";
+                wrapper.style.zIndex = zIndex;
+                wrapper.className = "bottle" + (flipHorizontal ? " flip-horizontal" : "");
+                wrapper.dataset.type = imgType;
+                
+                var img = document.createElement("img");
+                img.src = imgConfig[imgType];
+                img.dataset.originalType = imgType;
+                
+                img.onerror = function() {
+                    console.error("❌ 圖片載入失敗：", img.src);
+                };
+                wrapper.appendChild(img);
+                parent.appendChild(wrapper);
+                
+                if (dataArr) dataArr.push(wrapper);
+                return wrapper;
+            },
+            
+            createWaterSurface: function(imgType, y, zIndex, parent, dataArr) {
+                var water = document.createElement("div");
+                water.id = "water_" + imgType + "_" + Date.now();
+                water.style.top = y + "px";
+                water.style.zIndex = zIndex;
+                water.className = "water";
+                water.dataset.type = imgType;
+                water.style.backgroundImage = `url("${imgConfig[imgType]}")`;
+                
+                var img = new Image();
+                img.src = imgConfig[imgType];
+                img.onerror = function() {
+                    console.error("❌ 水面圖片載入失敗：", imgConfig[imgType]);
+                    water.style.backgroundColor = "rgba(0, 100, 255, 0.2)";
+                };
+                
+                parent.appendChild(water);
+                if (dataArr) dataArr.push(water);
+                return water;
+            }
+        };
+
+        var GameMenu = {
+            data: [],
+            bottles: [], 
+            waterSurfaces: [], 
+            gameStatus: "stop",
+            timeCount: 0,
+            timerInterval: null,
+            duckSpawnCounter: 0,
+            duckTypes: ["pin", "pin1", "pin2"],
+            player1: {
+                target: "pin",
+                hitCount: 0,
+                targetCount: 6
+            },
+            player2: {
+                target: "pin1",
+                hitCount: 0,
+                targetCount: 6
+            },
+            winner: null,
+            totalHits: 0, // 新增：击中目标的总次数
+            totalClicks: 0 // 新增：总点击次数（含误击）
+        };
+
+        var gameContainer = document.getElementById("gameContainer");
+        var startBtn = document.getElementById("startBtn");
+        var timeCountText = document.getElementById("timeCount");
+        var player1ScoreText = document.getElementById("player1Score");
+        var player2ScoreText = document.getElementById("player2Score");
+        var statusText = document.getElementById("status-text");
+
+        // 得分弹窗元素
+        var scoreModal = document.getElementById("scoreModal");
+        var modalDesc = document.getElementById("modalDesc");
+        var modalHitCount = document.getElementById("modalHitCount");
+        var modalAccuracy = document.getElementById("modalAccuracy");
+        var modalTime = document.getElementById("modalTime");
+        var playAgainBtn = document.getElementById("playAgainBtn");
+
+        // 关闭弹窗
+        function closeScoreModal() {
+            scoreModal.style.display = "none";
+        }
+
+        // 再玩一次（重置游戏）
+        function playAgain() {
+            closeScoreModal();
+            GameMenu.gameStatus = "stop";
+            clearInterval(GameMenu.timerInterval);
+            clearInterval(spawnTimer);
+            
+            // 重置所有数据
+            GameMenu.player1.hitCount = 0;
+            GameMenu.player2.hitCount = 0;
+            GameMenu.totalHits = 0;
+            GameMenu.totalClicks = 0;
+            GameMenu.timeCount = 0;
+            GameMenu.duckSpawnCounter = 0;
+            GameMenu.winner = null;
+            
+            // 更新显示
+            player1ScoreText.innerText = "0";
+            player2ScoreText.innerText = "0";
+            timeCountText.innerText = "0";
+            statusText.innerText = "點擊開始（白鴨擊中不計分）";
+            statusText.classList.remove('countdown');
+            
+            // 清理游戏元素
+            GameMenu.data.forEach(element => element.remove());
+            GameMenu.bottles = [];
+            GameMenu.waterSurfaces = [];
+            GameMenu.data = [];
+            
+            // 启用开始按钮
+            startBtn.disabled = false;
+        }
+        playAgainBtn.addEventListener("click", playAgain);
+
+        function getScreenParams() {
+            var containerWidth = gameContainer.clientWidth;
+            var containerHeight = gameContainer.clientHeight;
+            
+            return {
+                width: containerWidth,
+                height: containerHeight,
+                bottleRows: [
+                    { y: containerHeight * 0.22, direction: 'right', flip: false, zIndex: 1 },
+                    { y: containerHeight * 0.42, direction: 'left', flip: true, zIndex: 4 },
+                    { y: containerHeight * 0.62, direction: 'right', flip: false, zIndex: 7 }
+                ],
+                waterRows: [
+                    { y: containerHeight * 0.33, type: 'water1', zIndex: 2 },
+                    { y: containerHeight * 0.42, type: 'water2', zIndex: 3 },
+                    { y: containerHeight * 0.53, type: 'water1', zIndex: 5 },
+                    { y: containerHeight * 0.63, type: 'water2', zIndex: 6 },
+                    { y: containerHeight * 0.73, type: 'water1', zIndex: 8 },
+                    { y: containerHeight * 0.84, type: 'water2', zIndex: 9 }
+                ],
+                leftBoundary: -100,
+                rightBoundary: containerWidth + 100,
+                bottleWidth: 80
+            };
+        }
+
+        var spawnTimer = null;
+
+        function handleBottleHit(bottle) {
+            if (bottle.classList.contains('hit') || GameMenu.gameStatus !== "playing") return;
+            
+            GameMenu.totalClicks++; // 记录总点击次数
+            
+            bottle.classList.add('hit');
+            var duckType = bottle.dataset.type;
+            
+            if (duckType === GameMenu.player1.target) {
+                playSound("hitYellow");
+                GameMenu.player1.hitCount++;
+                GameMenu.totalHits++; // 记录有效击中
+                player1ScoreText.innerText = GameMenu.player1.hitCount;
+            } else if (duckType === GameMenu.player2.target) {
+                playSound("hitBrown");
+                GameMenu.player2.hitCount++;
+                GameMenu.totalHits++; // 记录有效击中
+                player2ScoreText.innerText = GameMenu.player2.hitCount;
+            } else if (duckType === "pin2") {
+                playSound("hitWhite");
+            }
+            
+            var imgElement = bottle.querySelector('img');
+            if (imgElement) {
+                var wasFlipped = bottle.classList.contains('flip-horizontal');
+                imgElement.src = imgConfig.hit + "?t=" + Date.now();
+                
+                imgElement.onerror = function() {
+                    console.error("❌ 擊中圖片載入失敗：", imgConfig.hit);
+                    bottle.style.backgroundColor = "#ff000033";
+                    bottle.innerHTML = "<div style='color:white; text-align:center;'>擊中</div>";
+                };
+                
+                if (wasFlipped) {
+                    bottle.classList.add('flip-horizontal');
+                }
+            }
+            
+            checkWinner();
+            
+            setTimeout(function() {
+                try {
+                    bottle.remove();
+                    ArrayUtil.removeItem(GameMenu.bottles, bottle);
+                    ArrayUtil.removeItem(GameMenu.data, bottle);
+                } catch (e) {
+                    console.log("移除已擊中鴨子：", e);
+                }
+            }, 300);
+        }
+
+        function checkWinner() {
+            if (GameMenu.player1.hitCount >= GameMenu.player1.targetCount) {
+                GameMenu.winner = 1;
+                endGame(`玩家1打掉了所有6個黃鴨！`, GameMenu.timeCount);
+            } else if (GameMenu.player2.hitCount >= GameMenu.player2.targetCount) {
+                GameMenu.winner = 2;
+                endGame(`玩家2打掉了所有6個棕鴨！`, GameMenu.timeCount);
+            }
+        }
+
+        function createBottle() {
+            if (GameMenu.gameStatus !== "playing") return;
+            
+            var screen = getScreenParams();
+            var randomRowIndex = Math.floor(Math.random() * screen.bottleRows.length);
+            var selectedRow = screen.bottleRows[randomRowIndex];
+            
+            var duckIndex = GameMenu.duckSpawnCounter % 3;
+            var elementType = GameMenu.duckTypes[duckIndex];
+            GameMenu.duckSpawnCounter++; 
+            
+            var startX, speedX;
+            var speedRatio = screen.width / 800;
+            var baseSpeed = (1 + Math.random() * 1) * speedRatio;
+            
+            if (selectedRow.direction === 'right') {
+                startX = screen.leftBoundary;
+                speedX = baseSpeed;
+            } else {
+                startX = screen.rightBoundary;
+                speedX = -baseSpeed;
+            }
+            
+            var bottle = CreateGame.createBottle(
+                elementType,
+                startX,
+                selectedRow.y,
+                selectedRow.zIndex,
+                gameContainer,
+                GameMenu.data,
+                selectedRow.flip
+            );
+
+            bottle.rowInfo = selectedRow;
+            bottle.speedX = speedX;
+            bottle.fixedY = selectedRow.y;
+
+            bottle.addEventListener("click", function(e) {
+                e.stopPropagation();
+                handleBottleHit(this);
+            });
+
+            GameMenu.bottles.push(bottle);
+        }
+
+        function createWaterSurfaces() {
+            var screen = getScreenParams();
+            screen.waterRows.forEach(row => {
+                var water = CreateGame.createWaterSurface(
+                    row.type,
+                    row.y,
+                    row.zIndex,
+                    gameContainer,
+                    GameMenu.data
+                );
+                GameMenu.waterSurfaces.push(water);
+            });
+        }
+
+        function updateBottleAction() {
+            if (GameMenu.gameStatus === "playing") {
+                var screen = getScreenParams();
+                
+                for (var i = 0; i < GameMenu.bottles.length; i++) {
+                    var bottle = GameMenu.bottles[i];
+                    if (!bottle) continue;
+
+                    var currentX = parseFloat(bottle.style.left) || 0;
+                    var newX = currentX + bottle.speedX;
+
+                    bottle.style.left = newX + "px";
+                    bottle.style.top = bottle.fixedY + "px";
+
+                    if (!bottle.classList.contains('hit')) {
+                        var isOutOfBounds = false;
+                        if (bottle.rowInfo.direction === 'right') {
+                            isOutOfBounds = newX > screen.rightBoundary;
+                        } else {
+                            isOutOfBounds = newX < screen.leftBoundary;
+                        }
+
+                        if (isOutOfBounds) {
+                            bottle.remove();
+                            GameMenu.bottles.splice(i, 1);
+                            ArrayUtil.removeItem(GameMenu.data, bottle);
+                            i--;
+                        }
+                    }
+                }
+            }
+        }
+
+        window.addEventListener("resize", function() {
+            if (GameMenu.gameStatus === "playing") {
+                var screen = getScreenParams();
+                
+                GameMenu.bottles.forEach((bottle, index) => {
+                    var rowIndex = index % screen.bottleRows.length;
+                    var rowConfig = screen.bottleRows[rowIndex];
+                    bottle.fixedY = rowConfig.y;
+                    bottle.style.top = bottle.fixedY + "px";
+                    bottle.style.zIndex = rowConfig.zIndex;
+                    
+                    if (rowConfig.flip) {
+                        bottle.classList.add('flip-horizontal');
+                    } else {
+                        bottle.classList.remove('flip-horizontal');
+                    }
+                });
+                
+                GameMenu.waterSurfaces.forEach((water, index) => {
+                    if (index < screen.waterRows.length) {
+                        var rowConfig = screen.waterRows[index];
+                        water.style.top = rowConfig.y + "px";
+                        water.style.width = screen.width + "px";
+                        water.style.zIndex = rowConfig.zIndex;
+                    }
+                });
+            }
+        });
+
+        function startTimer() {
+            if (GameMenu.timerInterval) {
+                clearInterval(GameMenu.timerInterval);
+            }
+            
+            GameMenu.timeCount = 0;
+            GameMenu.duckSpawnCounter = 0; 
+            GameMenu.totalHits = 0; // 重置击中数
+            GameMenu.totalClicks = 0; // 重置点击数
+            timeCountText.innerText = GameMenu.timeCount;
+            statusText.innerText = "遊戲中...（白鴨擊中不計分）";
+            statusText.classList.remove('countdown');
+            
+            GameMenu.timerInterval = setInterval(function() {
+                GameMenu.timeCount++;
+                timeCountText.innerText = GameMenu.timeCount;
+            }, 1000);
+        }
+
+        // 填充截图样式的得分信息
+        function endGame(desc, timeUsed) {
+            GameMenu.gameStatus = "stop";
+            clearInterval(spawnTimer);
+            clearInterval(GameMenu.timerInterval);
+            
+            statusText.innerText = desc.split('！')[0] + "！";
+            startBtn.disabled = false;
+            
+            // 1. 填充完成描述
+            modalDesc.textContent = desc;
+            
+            // 2. 填充击中数
+            modalHitCount.textContent = `玩家1：${GameMenu.player1.hitCount}/6 | 玩家2：${GameMenu.player2.hitCount}/6`;
+            
+            // 3. 计算命中率
+            let accuracy = 0;
+            if (GameMenu.totalClicks > 0) {
+                accuracy = Math.round((GameMenu.totalHits / GameMenu.totalClicks) * 100);
+            }
+            modalAccuracy.textContent = `${accuracy}%`;
+            
+            // 4. 填充完成时间
+            modalTime.textContent = `${timeUsed}秒`;
+            
+            // 显示弹窗
+            scoreModal.style.display = "flex";
+            
+            // 清理游戏元素
+            GameMenu.data.forEach(element => element.remove());
+            GameMenu.bottles = [];
+            GameMenu.waterSurfaces = [];
+            GameMenu.data = [];
+            GameMenu.winner = null;
+        }
+
+        function gameLoop() {
+            if (GameMenu.gameStatus === "playing") {
+                updateBottleAction();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startCountdown() {
+            let countdown = 3;
+            
+            startBtn.disabled = true;
+            statusText.classList.add('countdown');
+            statusText.innerText = countdown;
+            playSound("ready");
+            
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    statusText.innerText = countdown;
+                } else {
+                    clearInterval(countdownInterval);
+                    startGame();
+                }
+            }, 1000);
+        }
+
+        function startGame() {
+            GameMenu.gameStatus = "playing";
+            GameMenu.player1.hitCount = 0;
+            GameMenu.player2.hitCount = 0;
+            GameMenu.duckSpawnCounter = 0; 
+            player1ScoreText.innerText = "0";
+            player2ScoreText.innerText = "0";
+            
+            GameMenu.data.forEach(element => element.remove());
+            GameMenu.bottles = [];
+            GameMenu.waterSurfaces = [];
+            GameMenu.data = [];
+            
+            createWaterSurfaces();
+            startTimer();
+            
+            clearInterval(spawnTimer);
+            spawnTimer = setInterval(createBottle, 1000);
+        }
+
+        startBtn.addEventListener("click", function() {
+            if (GameMenu.gameStatus === "playing") return;
+            startCountdown();
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>
